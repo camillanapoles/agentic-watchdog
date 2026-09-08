@@ -131,7 +131,7 @@ do_detect() {
       '{visibility:$v, public_since:null, last_push:$lp}')"
   else
     save_state "$(jq -n --arg v "$TARGET_VIS" \
-        --arg ps "$([[ $TARGET_VIS == public ]] && echo "${public_since:-$(date -u +%FT%TZ)}" || echo null)" \
+        --argjson ps "$([[ $TARGET_VIS == public ]] && printf '"%s"' "${public_since:-$(date -u +%FT%TZ)}" || echo null)" \
         --arg lp "$TARGET_PUSHED" \
         '{visibility:$v, public_since:$ps, last_push:$lp}')"
   fi
