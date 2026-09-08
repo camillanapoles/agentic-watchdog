@@ -141,9 +141,17 @@ do_detect() {
 # MODE=guard — inatividade ➞ reconversão verificada
 # ============================================================================
 active_runs_count() {
-  local runs
+  # Runs ativas RECENTES = entregas reais em andamento. Runs queued/in_progress
+  # há mais de ACTIVE_RUN_MAX_AGE_MIN (default 45) são zumbis (ex.: dependabot
+  # dinâmico travado) e NÃO adiam a reconversão — apenas contam como alerta.
+  local runs now
   runs="$(api GET "/repos/${TARGET_REPO}/actions/runs?per_page=100")"
-  jq '[.workflow_runs[] | select(.status == "in_progress" or .status == "queued")] | length' <<<"$runs"
+  now="$(now_epoch)"
+  jq --argjson now "$now" --argjson max_age $(( ${ACTIVE_RUN_MAX_AGE_MIN:-45} * 60 )) '
+    [.workflow_runs[]
+      | select(.status == "in_progress" or .status == "queued")
+      | select(($now - (.created_at | sub("\\.[0-9]+Z$"; "Z") | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime)) < $max_age)]
+    | length' <<<"$runs"
 }
 
 do_guard() {
