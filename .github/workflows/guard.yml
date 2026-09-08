@@ -1,0 +1,45 @@
+# Guarda — monitor de inatividade do repositório alvo
+# Disparada pela sentinela ao capturar privado➞público, e por cron a cada 5 min
+# (autônoma: cobre falhas de dispatch). Se o alvo está público e sem push por
+# ≥ inactivity_minutes (default 60), reconverte para privado, TESTA via API e
+# valida (issue crítica em caso de não-confirmação). Adia se houver CI ativo.
+name: Guarda — Inatividade ➞ Privado
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      inactivity_minutes:
+        description: 'Limite de inatividade em minutos (produção: 60; teste: 1)'
+        default: '60'
+      dry_run:
+        description: 'Simular sem converter'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # estado no branch `state`
+  issues: write     # issue crítica se a reconversão não confirmar
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Medir inatividade e reverter se expirada
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guarda de inatividade
+        env:
+          WATCHDOG_PAT: ${{ secrets.WATCHDOG_PAT }}
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
+          WATCHDOG_REPO: ${{ github.repository }}
+          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || '60' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: bash watchdog.sh guard

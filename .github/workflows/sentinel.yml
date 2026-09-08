@@ -1,0 +1,39 @@
+# Sentinela — detecção AUTOMÁTICA de mudança de visibilidade (privado➞público)
+# Roda a cada 5 min no watchdog PÚBLICO (Actions ilimitadas), cobrindo o alvo
+# privado (onde Actions não rodam neste plano). Ao capturar a abertura, dispara
+# o guard.yml (monitor de inatividade).
+name: Sentinela — Detecção de Visibilidade
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      inactivity_minutes:
+        description: 'Limite de inatividade (min) repassado à guarda'
+        default: '60'
+
+permissions:
+  contents: write   # persistir estado no branch `state`
+  actions: write    # disparar guard.yml
+
+concurrency:
+  group: watchdog          # serializa sentinela+guarda (não interromper conversão)
+  cancel-in-progress: false
+
+jobs:
+  sentinel:
+    name: Varrer visibilidade do alvo
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detectar transições de visibilidade
+        env:
+          WATCHDOG_PAT: ${{ secrets.WATCHDOG_PAT }}
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
+          WATCHDOG_REPO: ${{ github.repository }}
+          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || '60' }}
+        run: bash watchdog.sh detect
