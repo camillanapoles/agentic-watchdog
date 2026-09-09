@@ -30,7 +30,7 @@ jobs:
   guard:
     name: Medir inatividade e reverter se expirada
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 

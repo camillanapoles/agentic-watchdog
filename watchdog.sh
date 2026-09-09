@@ -168,25 +168,50 @@ do_guard() {
   public_since="$(jq -r '.public_since // empty' <<<"$state")"
   [[ -z "$public_since" ]] && public_since="$(date -u +%FT%TZ)"  # primeira observação
 
-  local pushed_epoch=0 ps_epoch
-  [[ -n "$TARGET_PUSHED" && "$TARGET_PUSHED" != null ]] && pushed_epoch="$(iso_to_epoch "$TARGET_PUSHED")"
-  ps_epoch="$(iso_to_epoch "$public_since")"
-  ref_epoch=$(( pushed_epoch > ps_epoch ? pushed_epoch : ps_epoch ))
-  idle_min=$(( ( $(now_epoch) - ref_epoch ) / 60 ))
-  log "público desde ${public_since}; último push ${TARGET_PUSHED}; inatividade ${idle_min} min (limite ${INACTIVITY_MINUTES})"
+  # ESPERA ATIVA INLINE: o schedule do GitHub (free) sofre jitter alto (ticks
+  # irregulares); este run NÃO depende de novo tick — aguarda até o limite de
+  # inatividade (com folga) e converte no mesmo run.
+  local deadline=$(( $(now_epoch) + (INACTIVITY_MINUTES + 10) * 60 ))
+  while :; do
+    fetch_target   # revalida: janela pode ter sido fechada manualmente
+    if [[ "$TARGET_VIS" == private ]]; then
+      log "alvo fechado manualmente durante a espera — registrado"
+      save_state "$(jq -n --arg v private --arg lp "$TARGET_PUSHED" '{visibility:$v, public_since:null, last_push:$lp}')"
+      return 0
+    fi
 
-  if (( idle_min < INACTIVITY_MINUTES )); then
-    log "ativo/_recente — aguardando (faltam $(( INACTIVITY_MINUTES - idle_min )) min)"
+    local pushed_epoch=0 ps_epoch
+    [[ -n "$TARGET_PUSHED" && "$TARGET_PUSHED" != null ]] && pushed_epoch="$(iso_to_epoch "$TARGET_PUSHED")"
+    ps_epoch="$(iso_to_epoch "$public_since")"
+    ref_epoch=$(( pushed_epoch > ps_epoch ? pushed_epoch : ps_epoch ))
+    idle_min=$(( ( $(now_epoch) - ref_epoch ) / 60 ))
+    (( idle_min >= INACTIVITY_MINUTES )) && break
+    if (( $(now_epoch) >= deadline )); then
+      log "deadline de espera atingido — próxima guarda (cron/dispatch) converte, idle=${idle_min}min"
+      save_state "$(jq -n --arg v public --arg ps "$public_since" --arg lp "$TARGET_PUSHED" \
+        '{visibility:$v, public_since:$ps, last_push:$lp}')"
+      return 0
+    fi
+    log "aguardando: inatividade ${idle_min}/${INACTIVITY_MINUTES} min (espera ativa neste run)"
     save_state "$(jq -n --arg v public --arg ps "$public_since" --arg lp "$TARGET_PUSHED" \
-      '{visibility:$v, public_since:$ps, last_push:$lp}')"
-    return 0
-  fi
+      '{visibility:$v, public_since:$ps, last_push:$lp}')" || true
+    sleep 60
+  done
 
-  runs="$(active_runs_count)"
-  if (( runs > 0 )); then
-    log "ADIADO: ${runs} run(s) de CI ativa(s) no alvo — não interromper entregas"
-    return 0
-  fi
+  log "público desde ${public_since}; inatividade ${idle_min} min ≥ limite ${INACTIVITY_MINUTES}"
+
+  # fail-safe: não interromper CI ativo (runs recentes; zumbis >45min não contam)
+  local waited=0
+  while :; do
+    runs="$(active_runs_count)"
+    (( runs == 0 )) && break
+    if (( $(now_epoch) >= deadline )); then
+      log "ADIADO definitivo: ${runs} run(s) ativa(s) e deadline esgotado — próximo tick converte"
+      return 0
+    fi
+    log "ADIADO: ${runs} run(s) de CI ativa(s) — não interromper entregas (esperando)"
+    sleep 60; waited=$((waited+1))
+  done
 
   if [[ "$DRY_RUN" == true ]]; then
     log "DRY_RUN: converteria ${TARGET_REPO} para privado agora"; return 0
@@ -203,7 +228,7 @@ do_guard() {
   done
   if [[ "$ok" != true ]]; then
     open_issue "[watchdog] FALHA: ${TARGET_REPO} segue público" \
-      "Guarda não conseguiu confirmar a reconversão após 3 tentativas. Verificar manualmente."
+      "Guarda não confirmou a reconversão após 3 tentativas. Verificar manualmente."
     die "reconversão NÃO confirmada — issue crítica aberta"
   fi
 
