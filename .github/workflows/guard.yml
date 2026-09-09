@@ -40,6 +40,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
           WATCHDOG_REPO: ${{ github.repository }}
-          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || vars.INACTIVITY_MINUTES || '30' }}
+          INACTIVITY_MINUTES: ${{ vars.INACTIVITY_MINUTES || inputs.inactivity_minutes || '30' }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: bash watchdog.sh guard
