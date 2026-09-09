@@ -9,7 +9,7 @@
 #                     branch `state` (trilha de auditoria) e, ao capturar uma
 #                     abertura, dispara o workflow de guarda.
 #   3. MODE=guard   — com o alvo público: monitora inatividade (sem push) e,
-#                     se ≥ INACTIVITY_MINUTES (default 60), converte
+#                     se ≥ INACTIVITY_MINUTES (default 30), converte
 #                     público➞privado, VERIFICA a conversão via API e registra.
 #                     Fail-safes: adiamento se houver runs de CI ativos;
 #                     3 tentativas + verificação pós-ação; issue crítica se a
@@ -34,7 +34,7 @@ set -euo pipefail
 MODE="${1:-detect}"
 TARGET_REPO="${TARGET_REPO:-camillanapoles/agentic}"
 WATCHDOG_REPO="${WATCHDOG_REPO:-camillanapoles/agentic-watchdog}"
-INACTIVITY_MINUTES="${INACTIVITY_MINUTES:-60}"
+INACTIVITY_MINUTES="${INACTIVITY_MINUTES:-30}"
 DRY_RUN="${DRY_RUN:-false}"
 STATE_BRANCH="${STATE_BRANCH:-state}"
 STATE_FILE="state/state.json"

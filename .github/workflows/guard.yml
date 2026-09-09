@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
     inputs:
       inactivity_minutes:
-        description: 'Limite de inatividade em minutos (produção: 60; teste: 1)'
-        default: '60'
+        description: 'Limite de inatividade em minutos (produção: 30; teste: 1)'
+        default: '30'
       dry_run:
         description: 'Simular sem converter'
         type: boolean
@@ -40,6 +40,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
           WATCHDOG_REPO: ${{ github.repository }}
-          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || '60' }}
+          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || vars.INACTIVITY_MINUTES || '30' }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: bash watchdog.sh guard

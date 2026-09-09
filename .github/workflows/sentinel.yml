@@ -11,7 +11,7 @@ on:
     inputs:
       inactivity_minutes:
         description: 'Limite de inatividade (min) repassado à guarda'
-        default: '60'
+        default: '30'
 
 permissions:
   contents: write   # persistir estado no branch `state`
@@ -35,5 +35,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
           WATCHDOG_REPO: ${{ github.repository }}
-          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || '60' }}
+          INACTIVITY_MINUTES: ${{ inputs.inactivity_minutes || vars.INACTIVITY_MINUTES || '30' }}
         run: bash watchdog.sh detect
