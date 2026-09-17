@@ -1,7 +1,9 @@
-# Guarda — monitor de inatividade do repositório alvo
-# Disparada pela sentinela ao capturar privado➞público, e por cron a cada 5 min
-# (autônoma: cobre falhas de dispatch). Se o alvo está público e sem push por
-# ≥ inactivity_minutes (default 60), reconverte para privado, TESTA via API e
+# Guarda — monitor de inatividade dos repositórios alvo
+# Disparada pela sentinela com target=<repo> ao capturar privado➞público
+# (guarda dedicada por repo: deadline início+(N+10)min independente, runs em
+# paralelo) e por cron a cada 5 min SEM target (autônoma: itera TARGET_REPOS
+# como rede de segurança). Se o alvo está público e sem push por
+# ≥ inactivity_minutes (default 30), reconverte para privado, TESTA via API e
 # valida (issue crítica em caso de não-confirmação). Adia se houver CI ativo.
 name: Guarda — Inatividade ➞ Privado
 
@@ -10,6 +12,11 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
+      target:
+        description: 'Repo específico (owner/name); vazio = todos em TARGET_REPOS'
+        type: string
+        required: false
+        default: ''
       inactivity_minutes:
         description: 'Limite de inatividade em minutos (produção: 30; teste: 1)'
         default: '30'
@@ -23,7 +30,7 @@ permissions:
   issues: write     # issue crítica se a reconversão não confirmar
 
 concurrency:
-  group: watchdog
+  group: watchdog-guard-${{ inputs.target || 'all' }}   # guarda por repo (paralela à sentinela e às demais guardas)
   cancel-in-progress: false
 
 jobs:
@@ -38,7 +45,9 @@ jobs:
         env:
           WATCHDOG_PAT: ${{ secrets.WATCHDOG_PAT }}
           GH_TOKEN: ${{ github.token }}
+          TARGET_REPOS: ${{ vars.TARGET_REPOS || '' }}
           TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
+          GUARD_TARGET: ${{ inputs.target || '' }}
           WATCHDOG_REPO: ${{ github.repository }}
           INACTIVITY_MINUTES: ${{ vars.INACTIVITY_MINUTES || inputs.inactivity_minutes || '30' }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}

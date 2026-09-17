@@ -1,7 +1,8 @@
 # Sentinela — detecção AUTOMÁTICA de mudança de visibilidade (privado➞público)
-# Roda a cada 5 min no watchdog PÚBLICO (Actions ilimitadas), cobrindo o alvo
-# privado (onde Actions não rodam neste plano). Ao capturar a abertura, dispara
-# o guard.yml (monitor de inatividade).
+# Roda a cada 5 min no watchdog PÚBLICO (Actions ilimitadas), cobrindo TODOS os
+# alvos privados de TARGET_REPOS (onde Actions não rodam neste plano). Ao
+# capturar uma abertura, dispara guard.yml com input target=<repo> — guarda
+# DEDICADA por repositório (deadline independente = paralelismo real).
 name: Sentinela — Detecção de Visibilidade
 
 on:
@@ -15,15 +16,15 @@ on:
 
 permissions:
   contents: write   # persistir estado no branch `state`
-  actions: write    # disparar guard.yml
+  actions: write    # disparar guard.yml (target=<repo>)
 
 concurrency:
-  group: watchdog          # serializa sentinela+guarda (não interromper conversão)
+  group: watchdog-sentinel
   cancel-in-progress: false
 
 jobs:
   sentinel:
-    name: Varrer visibilidade do alvo
+    name: Varrer visibilidade dos alvos (TARGET_REPOS)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -33,6 +34,7 @@ jobs:
         env:
           WATCHDOG_PAT: ${{ secrets.WATCHDOG_PAT }}
           GH_TOKEN: ${{ github.token }}
+          TARGET_REPOS: ${{ vars.TARGET_REPOS || '' }}
           TARGET_REPO: ${{ vars.TARGET_REPO || 'camillanapoles/agentic' }}
           WATCHDOG_REPO: ${{ github.repository }}
           INACTIVITY_MINUTES: ${{ vars.INACTIVITY_MINUTES || inputs.inactivity_minutes || '30' }}
