@@ -5,8 +5,8 @@
     "last_push": "2026-09-11T00:27:34Z"
   },
   "camillanapoles/ombinus": {
-    "visibility": "public",
-    "public_since": "2026-10-01T14:41:06Z",
+    "visibility": "private",
+    "public_since": null,
     "last_push": "2026-10-01T14:05:14Z"
   },
   "camillanapoles/github-in-wasm": {
